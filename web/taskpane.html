@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Daily Routine</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <style>
+    :root {
+      --brand: #0078d4;
+      --bg: #faf9f8;
+      --text: #201f1e;
+      --muted: #605e5c;
+      --done: #107c10;
+    }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 16px;
+    }
+    h1 { font-size: 18px; margin: 0 0 4px; color: var(--brand); }
+    .subtitle { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
+    .block {
+      background: #ffffff;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+    }
+    .block h2 { font-size: 13px; margin: 0 0 8px; color: var(--brand); }
+    .task {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 6px 0;
+      font-size: 13px;
+      border-bottom: 1px solid #f3f2f1;
+    }
+    .task:last-child { border-bottom: none; }
+    .task input[type="checkbox"] { margin-top: 2px; }
+    .task.done label { text-decoration: line-through; color: var(--done); }
+    .progress {
+      height: 6px;
+      background: #edebe9;
+      border-radius: 3px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .progress > div {
+      height: 100%;
+      background: var(--brand);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    button {
+      background: var(--brand);
+      color: #fff;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      width: 100%;
+      margin-top: 8px;
+    }
+    button.secondary {
+      background: #fff;
+      color: var(--brand);
+      border: 1px solid var(--brand);
+    }
+  </style>
+</head>
+<body>
+  <h1>Daily Routine</h1>
+  <div class="subtitle" id="today"></div>
+
+  <div class="progress"><div id="bar"></div></div>
+
+  <div class="block">
+    <h2>09:00 - Triage Block</h2>
+    <div class="task"><input type="checkbox" id="t1"><label for="t1">Sort inbox by Unread + Flagged</label></div>
+    <div class="task"><input type="checkbox" id="t2"><label for="t2">Apply 4D rule (Delete / Delegate / Defer / Do)</label></div>
+    <div class="task"><input type="checkbox" id="t3"><label for="t3">Reply to anything under 2 minutes</label></div>
+  </div>
+
+  <div class="block">
+    <h2>09:30 - Top 3 Priorities</h2>
+    <div class="task"><input type="checkbox" id="t4"><label for="t4">Priority 1</label></div>
+    <div class="task"><input type="checkbox" id="t5"><label for="t5">Priority 2</label></div>
+    <div class="task"><input type="checkbox" id="t6"><label for="t6">Priority 3</label></div>
+  </div>
+
+  <div class="block">
+    <h2>11:30 - Mid-Morning Sweep</h2>
+    <div class="task"><input type="checkbox" id="t7"><label for="t7">Check urgent from Vivian / Matt / Sharifa</label></div>
+    <div class="task"><input type="checkbox" id="t8"><label for="t8">Vendor / external thread responses</label></div>
+  </div>
+
+  <div class="block">
+    <h2>14:00 - Deep Work</h2>
+    <div class="task"><input type="checkbox" id="t9"><label for="t9">Notifications off - design block</label></div>
+  </div>
+
+  <div class="block">
+    <h2>16:00 - Afternoon Sweep</h2>
+    <div class="task"><input type="checkbox" id="t10"><label for="t10">Clear new emails</label></div>
+    <div class="task"><input type="checkbox" id="t11"><label for="t11">Update flagged items</label></div>
+  </div>
+
+  <div class="block">
+    <h2>17:30 - End of Day</h2>
+    <div class="task"><input type="checkbox" id="t12"><label for="t12">Define tomorrow top 3</label></div>
+    <div class="task"><input type="checkbox" id="t13"><label for="t13">Inbox under 10 items</label></div>
+  </div>
+
+  <button id="flagBtn">Flag current email for follow-up</button>
+  <button class="secondary" id="resetBtn">Reset for new day</button>
+
+  <script>
+    Office.onReady(() => {
+      const today = new Date().toLocaleDateString('en-GB', {
+        weekday: 'long', day: 'numeric', month: 'long'
+      });
+      document.getElementById('today').textContent = today;
+
+      const boxes = document.querySelectorAll('input[type="checkbox"]');
+      const bar = document.getElementById('bar');
+      const storageKey = 'dailyRoutine_' + new Date().toDateString();
+      const saved = JSON.parse(localStorage.getItem(storageKey) || '{}');
+
+      boxes.forEach(b => {
+        if (saved[b.id]) {
+          b.checked = true;
+          b.parentElement.classList.add('done');
+        }
+        b.addEventListener('change', () => {
+          b.parentElement.classList.toggle('done', b.checked);
+          saved[b.id] = b.checked;
+          localStorage.setItem(storageKey, JSON.stringify(saved));
+          updateProgress();
+        });
+      });
+
+      function updateProgress() {
+        const done = [...boxes].filter(b => b.checked).length;
+        bar.style.width = (done / boxes.length * 100) + '%';
+      }
+      updateProgress();
+
+      document.getElementById('flagBtn').addEventListener('click', () => {
+        const item = Office.context.mailbox.item;
+        if (item && item.categories) {
+          item.categories.addAsync(['Routine Follow-up'], (res) => {
+            if (res.status === Office.AsyncResultStatus.Succeeded) {
+              alert('Email flagged for follow-up.');
+            } else {
+              alert('Could not flag: ' + res.error.message);
+            }
+          });
+        } else {
+          alert('Open an email first to flag it.');
+        }
+      });
+
+      document.getElementById('resetBtn').addEventListener('click', () => {
+        localStorage.removeItem(storageKey);
+        boxes.forEach(b => {
+          b.checked = false;
+          b.parentElement.classList.remove('done');
+        });
+        updateProgress();
+      });
+    });
+  </script>
+</body>
+</html>
